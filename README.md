@@ -43,4 +43,4 @@ This expression can be directly used in Desmos for verification.
 - `README.md` — Explanation of approach and results
 
 ## Author
-Prepared by **Prakash Garg**
+Prepared by **Prakash Kumar Garg**

@@ -44,3 +44,83 @@ This expression can be directly used in Desmos for verification.
 
 ## Author
 Prepared by **Prakash Kumar Garg**
+
+
+
+import os
+import torch
+import torchvision.models as models
+import torchvision.transforms as transforms
+from PIL import Image
+import matplotlib.pyplot as plt
+import numpy as np
+
+# =========================
+# CONFIG
+# =========================
+INPUT_DIR = "input_images"
+OUTPUT_DIR = "output_saliency"
+
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+# =========================
+# LOAD MODEL
+# =========================
+model = models.resnet18(pretrained=True)
+model.eval()
+
+# =========================
+# TRANSFORM
+# =========================
+transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+])
+
+# =========================
+# PROCESS FUNCTION
+# =========================
+def generate_saliency(image_path, save_path):
+    # Load image
+    img = Image.open(image_path).convert("RGB")
+    input_img = transform(img).unsqueeze(0)
+
+    # Enable gradient
+    input_img.requires_grad_()
+
+    # Forward pass
+    output = model(input_img)
+    pred_class = output.argmax(dim=1)
+
+    # Backward pass
+    model.zero_grad()
+    output[0, pred_class].backward()
+
+    # Get saliency
+    saliency = input_img.grad.data.abs()
+    saliency, _ = torch.max(saliency, dim=1)
+
+    saliency = saliency.squeeze().cpu().numpy()
+
+    # Normalize
+    saliency = (saliency - saliency.min()) / (saliency.max() - saliency.min() + 1e-8)
+
+    # Convert to image
+    saliency_img = (saliency * 255).astype(np.uint8)
+
+    # Save using PIL
+    saliency_pil = Image.fromarray(saliency_img)
+    saliency_pil.save(save_path)
+
+# =========================
+# MAIN LOOP
+# =========================
+for filename in os.listdir(INPUT_DIR):
+    if filename.lower().endswith((".jpg", ".png", ".jpeg")):
+        input_path = os.path.join(INPUT_DIR, filename)
+        output_path = os.path.join(OUTPUT_DIR, f"saliency_{filename}")
+
+        print(f"Processing: {filename}")
+        generate_saliency(input_path, output_path)
+
+print("✅ Done! Saliency maps saved in:", OUTPUT_DIR)
